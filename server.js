@@ -1,5 +1,6 @@
 // Monitor avícola: recibe las lecturas del gateway Milesight, avisa por
-// WhatsApp/llamada y sirve el panel web. Sin dependencias externas (Node 18+).
+// WhatsApp/llamada y sirve el panel web. Node 18+; la única dependencia (mqtt)
+// solo se usa si se activa la entrada por MQTT.
 
 const http = require("http");
 const fs = require("fs");
@@ -9,13 +10,25 @@ const { leerUplink } = require("./lib/decoder");
 const { crearAlmacen } = require("./lib/almacen");
 const { crearNotificador } = require("./lib/notificar");
 const { crearMotor } = require("./lib/alertas");
+const { cargarConfig } = require("./lib/config");
+const { conectarMqtt } = require("./lib/mqtt");
 
-const archConfig = process.env.CONFIG || path.join(__dirname, "config.json");
-if (!fs.existsSync(archConfig)) {
-  console.error(`No existe ${archConfig}. Copia config.example.json a config.json y complétalo.`);
+let config, origen, problemas;
+try {
+  ({ config, origen, problemas } = cargarConfig());
+} catch (e) {
+  console.error(`Error en la configuración: ${e.message}`);
   process.exit(1);
 }
-const config = JSON.parse(fs.readFileSync(archConfig, "utf8"));
+console.log(`Configuración leída de: ${origen}`);
+if (problemas.length) {
+  for (const p of problemas) console.error(`  ✗ ${p}`);
+  if (!config.modoPrueba) {
+    console.error("No se puede arrancar en modo real con estos problemas. Corrígelos o usa MODO_PRUEBA=true.");
+    process.exit(1);
+  }
+  console.error("  (en modo prueba se arranca igual)");
+}
 const sensores = new Map((config.sensores || []).map((s) => [s.devEUI.toUpperCase(), s]));
 
 const almacen = crearAlmacen(process.env.DATOS || path.join(__dirname, "datos"));
@@ -107,6 +120,24 @@ function historial(galpon, horas) {
   return { desde, hasta: Date.now(), series };
 }
 
+// Procesa un mensaje del gateway, venga por HTTP o por MQTT.
+let ultimoUplink = null;
+function procesarUplink(cuerpo, via) {
+  const l = leerUplink(cuerpo);
+  if (!l) return { codigo: 400, respuesta: { error: "mensaje sin devEUI" } };
+  ultimoUplink = Date.now();
+  const s = sensores.get(l.eui);
+  if (!s) {
+    console.log(`[${via}] sensor no registrado: ${l.eui}`, l);
+    return { codigo: 200, respuesta: { ok: true, ignorado: true } };
+  }
+  const lectura = { t: Date.now(), eui: l.eui };
+  for (const k of ["temp", "hum", "bat", "di"]) if (l[k] !== undefined) lectura[k] = l[k];
+  almacen.guardarLectura(lectura);
+  motor.evaluar(s, lectura);
+  return { codigo: 200, respuesta: { ok: true } };
+}
+
 const servidor = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://x");
   try {
@@ -114,21 +145,20 @@ const servidor = http.createServer(async (req, res) => {
     if (url.pathname === "/uplink" && req.method === "POST") {
       const token = url.searchParams.get("token") || req.headers["x-token"] || "";
       if (!config.tokenGateway || !iguales(token, config.tokenGateway)) return json(res, 401, { error: "token inválido" });
-      const l = leerUplink(JSON.parse(await leerCuerpo(req)));
-      if (!l) return json(res, 400, { error: "mensaje sin devEUI" });
-      const s = sensores.get(l.eui);
-      if (!s) {
-        console.log(`[uplink] sensor no registrado en config.json: ${l.eui}`, l);
-        return json(res, 200, { ok: true, ignorado: true });
+      let cuerpo;
+      try {
+        cuerpo = JSON.parse(await leerCuerpo(req));
+      } catch {
+        return json(res, 400, { error: "el cuerpo no es JSON" });
       }
-      const lectura = { t: Date.now(), eui: l.eui };
-      for (const k of ["temp", "hum", "bat", "di"]) if (l[k] !== undefined) lectura[k] = l[k];
-      almacen.guardarLectura(lectura);
-      motor.evaluar(s, lectura);
-      return json(res, 200, { ok: true });
+      const { codigo, respuesta } = procesarUplink(cuerpo, "http");
+      return json(res, codigo, respuesta);
     }
 
-    if (url.pathname === "/salud") return json(res, 200, { ok: true });
+    // Para el monitor externo (UptimeRobot) y el chequeo de salud de la plataforma.
+    if (url.pathname === "/salud") {
+      return json(res, 200, { ok: true, modoPrueba: !!config.modoPrueba, sensores: sensores.size, ultimoUplink });
+    }
 
     if (!autorizado(req)) {
       res.writeHead(401, { "WWW-Authenticate": 'Basic realm="Monitor avicola", charset="UTF-8"' });
@@ -158,7 +188,20 @@ const servidor = http.createServer(async (req, res) => {
   }
 });
 
+const mqtt = conectarMqtt(config.mqtt, (cuerpo) => procesarUplink(cuerpo, "mqtt"));
+
 const puerto = process.env.PORT || config.puerto || 3000;
 servidor.listen(puerto, () => {
   console.log(`Monitor avícola escuchando en el puerto ${puerto}${config.modoPrueba ? " (MODO PRUEBA: no envía mensajes reales)" : ""}`);
 });
+
+// Las plataformas en la nube detienen el contenedor con SIGTERM al desplegar una versión nueva.
+for (const senal of ["SIGTERM", "SIGINT"]) {
+  process.on(senal, () => {
+    console.log(`Recibido ${senal}, cerrando.`);
+    mqtt?.end();
+    servidor.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 3000).unref();
+  });
+}
+process.on("unhandledRejection", (e) => console.error("[sin capturar]", e));

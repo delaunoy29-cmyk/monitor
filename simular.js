@@ -1,8 +1,8 @@
 // Simula los sensores enviando datos como lo haría el gateway, para probar sin equipos.
 // Uso: node simular.js [url] [token] [modo]
 //   modo: normal (por defecto) | calor | sinluz | historia
-const fs = require("fs");
-const config = JSON.parse(fs.readFileSync(process.env.CONFIG || __dirname + "/config.json", "utf8"));
+// Usa la misma configuración que el servidor (config.json o variables de entorno).
+const { config } = require("./lib/config").cargarConfig();
 const url = process.argv[2] || `http://localhost:${config.puerto || 3000}`;
 const token = process.argv[3] || config.tokenGateway;
 const modo = process.argv[4] || "normal";
