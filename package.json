@@ -1,0 +1,11 @@
+{
+  "name": "monitor-avicola",
+  "version": "1.0.0",
+  "description": "Monitor de temperatura de galpones con alertas por WhatsApp y llamada",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "simular": "node simular.js"
+  },
+  "engines": { "node": ">=18" }
+}

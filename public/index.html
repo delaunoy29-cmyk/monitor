@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Monitor Galpones</title>
+<style>
+:root{
+  --bg:#f4f3ef; --surface:#ffffff; --ink:#22231f; --muted:#6b6c63; --line:#dedcd3;
+  --ok:#2f7a4a; --ok-soft:#e3f1e7; --warn:#a86a00; --warn-soft:#fbefd6; --crit:#b8321f; --crit-soft:#fbe2dc;
+  --accent:#8a5a1c;
+  --s1:#c2410c; --s2:#2563a8; --s3:#6b7f2a;
+  --f:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#171714; --surface:#21211d; --ink:#ecebe4; --muted:#a3a296; --line:#36362f;
+  --ok:#6cc58a; --ok-soft:#1f3326; --warn:#e6b04f; --warn-soft:#3a2f17; --crit:#f2836f; --crit-soft:#3d211b;
+  --accent:#d9a45c; --s1:#f08a4b; --s2:#6fa8e8; --s3:#b4c95e; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 var(--f)}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 40px;display:flex;flex-direction:column;gap:20px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:8px}
+h1{margin:0;font-size:1.6rem;letter-spacing:-.01em}
+h2{margin:0 0 10px;font-size:1rem}
+.muted{color:var(--muted);font-size:13px}
+.banner{border-radius:8px;padding:12px 14px;font-weight:600;display:flex;gap:10px;align-items:center}
+.banner.ok{background:var(--ok-soft);color:var(--ok)}
+.banner.aviso{background:var(--warn-soft);color:var(--warn)}
+.banner.critico{background:var(--crit-soft);color:var(--crit)}
+.galpones{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card.aviso{border-color:var(--warn)} .card.critico{border-color:var(--crit);box-shadow:0 0 0 2px var(--crit-soft)}
+.card-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card-h b{font-size:1.05rem}
+.chip{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
+.chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.aviso{background:var(--warn-soft);color:var(--warn)} .chip.critico{background:var(--crit-soft);color:var(--crit)}
+.sens{display:flex;justify-content:space-between;align-items:baseline;gap:8px;border-top:1px solid var(--line);padding-top:8px}
+.sens .n{font-size:13px;color:var(--muted)}
+.temp{font:600 1.9rem/1 var(--mono);font-variant-numeric:tabular-nums}
+.temp.aviso{color:var(--warn)} .temp.critico{color:var(--crit)}
+.det{font:13px var(--mono);color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;min-width:0}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+button{font:600 13px var(--f);padding:7px 12px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+button[aria-pressed=true]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chartbox{position:relative;width:100%;height:260px}
+canvas{width:100%;height:100%;display:block}
+.leyenda{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;margin-top:8px}
+.leyenda i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+ul.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+ul.log li{display:flex;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:14px}
+ul.log li:first-child{border-top:none}
+ul.log time{font:12px var(--mono);color:var(--muted);white-space:nowrap;padding-top:2px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><h1>Monitor de galpones</h1><div class="muted" id="act">Cargando…</div></div>
+  </header>
+  <div class="banner ok" id="banner">Cargando estado…</div>
+  <section class="galpones" id="galpones"></section>
+
+  <section class="panel">
+    <h2>Temperatura</h2>
+    <div class="tabs" id="tabsG"></div>
+    <div class="tabs" id="tabsH">
+      <button data-h="24" aria-pressed="true">24 horas</button>
+      <button data-h="72">3 días</button>
+      <button data-h="168">7 días</button>
+    </div>
+    <div class="chartbox"><canvas id="chart"></canvas></div>
+    <div class="leyenda" id="leyenda"></div>
+  </section>
+
+  <div class="cols">
+    <section class="panel"><h2>Alertas activas</h2><ul class="log" id="activas"></ul></section>
+    <section class="panel"><h2>Últimos avisos enviados</h2><ul class="log" id="registro"></ul></section>
+  </div>
+
+  <section class="panel">
+    <h2>Probar avisos</h2>
+    <p class="muted" style="margin:0 0 10px">Envía un mensaje de prueba a todos los contactos para comprobar que les llega.</p>
+    <div class="row" id="pruebas">
+      <button data-tipo="whatsapp">Enviar WhatsApp de prueba</button>
+      <button data-tipo="llamada">Probar WhatsApp + llamada</button>
+      <span class="muted" id="pruebaMsg"></span>
+    </div>
+  </section>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let est=null, galSel=1, horas=24;
+const fmt=(n,d=1)=>n==null?"–":n.toFixed(d).replace(".",",");
+const hace=t=>{if(!t)return"sin datos";const m=Math.round((Date.now()-t)/60000);return m<1?"ahora":m<60?`hace ${m} min`:m<1440?`hace ${Math.round(m/60)} h`:`hace ${Math.round(m/1440)} d`};
+const hora=t=>new Date(t).toLocaleString("es-CL",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false});
+const el=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e};
+const NIVEL={ok:"Normal",aviso:"Aviso",critico:"Crítico"};
+
+async function cargar(){
+  try{
+    const r=await fetch("api/estado",{cache:"no-store"});
+    est=await r.json(); pintar();
+    $("act").textContent="Actualizado "+new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit",hour12:false})+" · se actualiza cada 30 s";
+  }catch{ $("act").textContent="Sin conexión con el servidor, reintentando…" }
+}
+
+function nivelTemp(t){const L=est.limites;if(t==null)return"";return t>=L.calorCritico?"critico":t>=L.calorAviso||t<=L.frio?"aviso":""}
+
+function pintar(){
+  const crit=est.alertas.filter(a=>a.nivel==="critico").length, av=est.alertas.length-crit;
+  const b=$("banner");
+  b.className="banner "+(crit?"critico":av?"aviso":"ok");
+  b.textContent=crit?`🚨 ${crit} alerta${crit>1?"s":""} crítica${crit>1?"s":""}${av?` y ${av} aviso${av>1?"s":""}`:""}`:av?`⚠️ ${av} aviso${av>1?"s":""} activo${av>1?"s":""}`:"✅ Todo normal en los galpones";
+
+  const g=$("galpones");g.innerHTML="";
+  est.galpones.forEach(gp=>{
+    const nv=gp.sensores.some(s=>s.nivel==="critico")?"critico":gp.sensores.some(s=>s.nivel==="aviso")?"aviso":"ok";
+    const c=el("div","card "+nv);
+    const h=el("div","card-h");h.append(el("b",null,gp.nombre),el("span","chip "+nv,NIVEL[nv]));c.append(h);
+    gp.sensores.forEach(s=>{
+      const r=el("div","sens");const izq=el("div");izq.append(el("div","n",s.nombre));
+      if(s.tipo==="luz"){
+        const conLuz=s.di===est.valorConLuz;
+        izq.append(el("div","temp "+(s.di==null?"":conLuz?"":"critico"),s.di==null?"–":conLuz?"Con luz":"SIN LUZ"));
+      }else izq.append(el("div","temp "+nivelTemp(s.temp),s.temp==null?"–":fmt(s.temp)+"°"));
+      const der=el("div","det");
+      der.innerHTML="";
+      if(s.tipo!=="luz")der.append(el("div",null,"Hum. "+(s.hum==null?"–":Math.round(s.hum)+" %")));
+      der.append(el("div",null,"Pila "+(s.bat==null?"–":s.bat+" %")),el("div",null,hace(s.ultimo)));
+      r.append(izq,der);c.append(r);
+    });
+    g.append(c);
+  });
+
+  const tg=$("tabsG");
+  if(!tg.childElementCount){
+    est.galpones.filter(x=>x.id>0).forEach(gp=>{const bt=el("button",null,gp.nombre);bt.dataset.g=gp.id;bt.setAttribute("aria-pressed",gp.id===galSel);bt.onclick=()=>{galSel=gp.id;[...tg.children].forEach(x=>x.setAttribute("aria-pressed",x===bt));grafico()};tg.append(bt)});
+  }
+
+  const ac=$("activas");ac.innerHTML="";
+  if(!est.alertas.length)ac.append(el("li","muted","No hay alertas activas."));
+  est.alertas.forEach(a=>{const li=el("li");li.append(el("time",null,hora(a.desde)),el("span",null,a.texto));ac.append(li)});
+  const rg=$("registro");rg.innerHTML="";
+  if(!est.registro.length)rg.append(el("li","muted","Aún no se ha enviado ningún aviso."));
+  est.registro.forEach(a=>{const li=el("li");li.append(el("time",null,hora(a.t)),el("span",null,a.texto));rg.append(li)});
+}
+
+const COLORES=["--s1","--s2","--s3"];
+async function grafico(){
+  let d;try{d=await (await fetch(`api/historial?galpon=${galSel}&horas=${horas}`)).json()}catch{return}
+  const cv=$("chart"),ctx=cv.getContext("2d"),dpr=devicePixelRatio||1;
+  const W=cv.clientWidth,H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+  const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  ctx.clearRect(0,0,W,H);
+  const L=est?.limites||{calorAviso:28,calorCritico:31,frio:14};
+  const vals=d.series.flatMap(s=>s.puntos.map(p=>p.temp).filter(v=>v!=null));
+  let lo=Math.min(L.frio-2,...vals),hi=Math.max(L.calorCritico+2,...vals);lo=Math.floor(lo/2)*2;hi=Math.ceil(hi/2)*2;
+  const m={l:38,r:10,t:10,b:24},x=t=>m.l+(t-d.desde)/(d.hasta-d.desde)*(W-m.l-m.r),y=v=>m.t+(hi-v)/(hi-lo)*(H-m.t-m.b);
+  ctx.font="11px "+css("--mono");ctx.fillStyle=css("--muted");ctx.strokeStyle=css("--line");ctx.lineWidth=1;
+  const paso=(hi-lo)>16?4:2;
+  for(let v=lo;v<=hi;v+=paso){ctx.beginPath();ctx.moveTo(m.l,y(v));ctx.lineTo(W-m.r,y(v));ctx.stroke();ctx.fillText(v+"°",4,y(v)+4)}
+  const nT=W<500?4:6;
+  for(let i=0;i<=nT;i++){const t=d.desde+(d.hasta-d.desde)*i/nT;const s=horas<=24?new Date(t).toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit",hour12:false}):new Date(t).toLocaleDateString("es-CL",{day:"2-digit",month:"2-digit"});const w=ctx.measureText(s).width;ctx.fillText(s,Math.min(Math.max(x(t)-w/2,m.l),W-m.r-w),H-6)}
+  const lim=(v,c)=>{ctx.save();ctx.setLineDash([5,4]);ctx.strokeStyle=c;ctx.beginPath();ctx.moveTo(m.l,y(v));ctx.lineTo(W-m.r,y(v));ctx.stroke();ctx.restore()};
+  lim(L.calorCritico,css("--crit"));lim(L.calorAviso,css("--warn"));lim(L.frio,css("--s2"));
+  const ley=$("leyenda");ley.innerHTML="";
+  d.series.forEach((s,i)=>{
+    const c=css(COLORES[i%COLORES.length]);ctx.strokeStyle=c;ctx.lineWidth=2;ctx.beginPath();let on=false,prev=null;
+    s.puntos.forEach(p=>{if(p.temp==null){on=false;return}const gap=prev&&p.t-prev>(horas<=24?20:90)*60000;if(!on||gap)ctx.moveTo(x(p.t),y(p.temp));else ctx.lineTo(x(p.t),y(p.temp));on=true;prev=p.t});
+    ctx.stroke();
+    const u=[...s.puntos].reverse().find(p=>p.temp!=null);
+    if(u){ctx.fillStyle=c;ctx.beginPath();ctx.arc(x(u.t),y(u.temp),3.5,0,7);ctx.fill()}
+    const sp=el("span");const ic=el("i");ic.style.background=c;sp.append(ic,document.createTextNode(s.nombre));ley.append(sp);
+  });
+  [["Crítico "+L.calorCritico+"°","--crit"],["Aviso "+L.calorAviso+"°","--warn"],["Frío "+L.frio+"°","--s2"]].forEach(([t,v])=>{const sp=el("span","muted");const ic=el("i");ic.style.background=css(v);ic.style.height="1px";sp.append(ic,document.createTextNode(t));ley.append(sp)});
+  if(!vals.length){ctx.fillStyle=css("--muted");ctx.font="14px "+css("--f");ctx.fillText("Sin lecturas en este periodo",m.l+12,m.t+24)}
+}
+
+$("tabsH").onclick=e=>{const b=e.target.closest("button");if(!b)return;horas=+b.dataset.h;[...$("tabsH").children].forEach(x=>x.setAttribute("aria-pressed",x===b));grafico()};
+$("pruebas").onclick=async e=>{
+  const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.confirm!=="1"){b.dataset.confirm="1";const t=b.textContent;b.textContent="¿Seguro? Pulsa otra vez";setTimeout(()=>{b.dataset.confirm="";b.textContent=t},4000);b.dataset.orig=t;return}
+  b.dataset.confirm="";b.textContent=b.dataset.orig;
+  try{await fetch("api/prueba?tipo="+b.dataset.tipo,{method:"POST"});$("pruebaMsg").textContent="Enviado. Los mensajes salen uno cada pocos segundos."}catch{$("pruebaMsg").textContent="No se pudo enviar: el servidor no responde."}
+};
+addEventListener("resize",()=>{clearTimeout(window._r);window._r=setTimeout(grafico,200)});
+cargar().then(grafico);
+setInterval(()=>{cargar();grafico()},30000);
+</script>
+</body>
+</html>

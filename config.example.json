@@ -1,0 +1,50 @@
+{
+  "modoPrueba": true,
+  "puerto": 3000,
+  "zonaHoraria": "America/Santiago",
+
+  "tokenGateway": "CAMBIA-ESTO-por-un-texto-largo-y-secreto",
+  "panel": { "usuario": "granja", "clave": "CAMBIA-ESTA-CLAVE" },
+
+  "galpones": ["Galpón 1", "Galpón 2", "Galpón 3", "Galpón 4"],
+
+  "sensores": [
+    { "devEUI": "24E1240000000001", "galpon": 1, "nombre": "Inicio", "tipo": "th" },
+    { "devEUI": "24E1240000000002", "galpon": 1, "nombre": "Fondo", "tipo": "th" },
+    { "devEUI": "24E1240000000003", "galpon": 2, "nombre": "Inicio", "tipo": "th" },
+    { "devEUI": "24E1240000000004", "galpon": 2, "nombre": "Fondo", "tipo": "th" },
+    { "devEUI": "24E1240000000005", "galpon": 3, "nombre": "Inicio", "tipo": "th" },
+    { "devEUI": "24E1240000000006", "galpon": 3, "nombre": "Fondo", "tipo": "th" },
+    { "devEUI": "24E1240000000007", "galpon": 4, "nombre": "Inicio", "tipo": "th" },
+    { "devEUI": "24E1240000000008", "galpon": 4, "nombre": "Fondo", "tipo": "th" },
+    { "devEUI": "24E1240000000009", "galpon": 0, "nombre": "Tablero general", "tipo": "luz" }
+  ],
+
+  "limites": {
+    "calorAviso": 28,
+    "calorCritico": 31,
+    "frio": 14,
+    "humedadAlta": 80,
+    "humedadMinutos": 30,
+    "sinDatosMinutos": 20,
+    "histeresis": 0.5
+  },
+
+  "repetir": { "avisoMin": 60, "criticoMin": 15 },
+
+  "luz": { "valorConLuz": 1 },
+
+  "contactos": [
+    { "nombre": "Persona 1", "whatsapp": "+56900000001", "apikey": "", "telegram": "@usuario1" },
+    { "nombre": "Persona 2", "whatsapp": "+56900000002", "apikey": "", "telegram": "@usuario2" },
+    { "nombre": "Persona 3", "whatsapp": "+56900000003", "apikey": "", "telegram": "@usuario3" }
+  ],
+
+  "llamadas": {
+    "proveedor": "callmebot",
+    "idioma": "es-ES-Standard-A",
+    "repetir": 2,
+    "minutosEntreLlamadas": 5,
+    "twilio": { "accountSid": "", "authToken": "", "desde": "" }
+  }
+}
