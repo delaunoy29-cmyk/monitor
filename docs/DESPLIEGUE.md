@@ -7,7 +7,7 @@ El servidor tiene que estar **en internet, no en la granja**: así puede avisar 
 ## 1. Crear el servicio en Render
 
 1. Crea una cuenta en [render.com](https://render.com) entrando con tu cuenta de GitHub.
-2. **New → Blueprint** y elige el repositorio `monitor-avicola`. Render lee el archivo `render.yaml` y prepara todo: el servicio, el disco para el historial y las variables.
+2. **New → Blueprint** y elige el repositorio `monitor`. Render lee el archivo `render.yaml` y prepara todo: el servicio, el disco para el historial y las variables.
 3. Render te pide los valores que son secretos (los que no vienen en el archivo). Complétalos con la tabla del punto 2. Si todavía no tienes los DevEUI de los sensores o las apikey de CallMeBot, déjalos vacíos: con `MODO_PRUEBA=true` el servidor arranca igual.
 4. Pulsa **Apply**. En unos minutos el servicio queda en una dirección como `https://monitor-avicola-xxxx.onrender.com`.
 5. Abre esa dirección: te pide usuario (`granja`) y la clave que pusiste en `PANEL_CLAVE`.
