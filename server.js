@@ -38,20 +38,67 @@ const motor = crearMotor(config, almacen, notificador);
 setInterval(motor.revisar, 60 * 1000);
 setInterval(almacen.compactar, 24 * 3600 * 1000);
 
-const panelHtml = fs.readFileSync(path.join(__dirname, "public", "index.html"));
+const publico = path.join(__dirname, "public");
+const panelHtml = fs.readFileSync(path.join(publico, "index.html"));
+const entrarHtml = fs.readFileSync(path.join(publico, "entrar.html"), "utf8");
+// Archivos que el iPhone necesita sin haber iniciado sesión para instalar el panel como app.
+const ARCHIVOS_PUBLICOS = {
+  "/manifest.webmanifest": "application/manifest+json",
+  "/sw.js": "text/javascript; charset=utf-8",
+  "/icono-180.png": "image/png",
+  "/icono-192.png": "image/png",
+  "/icono-512.png": "image/png",
+};
+const archivosPublicos = new Map(Object.entries(ARCHIVOS_PUBLICOS).map(([ruta, tipo]) =>
+  [ruta, { tipo, datos: fs.readFileSync(path.join(publico, ruta.slice(1))) }]));
+// Apple usa esta ruta si no encuentra el <link rel="apple-touch-icon">.
+archivosPublicos.set("/apple-touch-icon.png", archivosPublicos.get("/icono-180.png"));
 
 function iguales(a, b) {
   const x = Buffer.from(String(a)), y = Buffer.from(String(b));
   return x.length === y.length && crypto.timingSafeEqual(x, y);
 }
 
-function autorizado(req) {
+function credencialesValidas(usuario, clave) {
   const p = config.panel;
-  if (!p?.clave) return true;
+  return iguales(usuario, p.usuario || "") && iguales(clave, p.clave);
+}
+
+// La sesión es una cookie firmada con la clave del panel: si se cambia PANEL_CLAVE,
+// todas las sesiones abiertas (incluida la app del iPhone) piden entrar otra vez.
+function valorSesion() {
+  const p = config.panel;
+  return crypto.createHmac("sha256", p.clave).update(`sesion:${p.usuario || ""}`).digest("hex");
+}
+const DURACION_SESION = 400 * 24 * 3600; // segundos; para no tener que volver a entrar en la app
+
+function leerCookie(req, nombre) {
+  for (const parte of (req.headers.cookie || "").split(";")) {
+    const i = parte.indexOf("=");
+    if (i > 0 && parte.slice(0, i).trim() === nombre) return parte.slice(i + 1).trim();
+  }
+  return null;
+}
+
+function autorizado(req) {
+  if (!config.panel?.clave) return true;
+  const sesion = leerCookie(req, "sesion");
+  if (sesion && iguales(sesion, valorSesion())) return true;
+  // Usuario y clave en la cabecera (curl, scripts, o navegadores con la sesión antigua).
   const m = /^Basic (.+)$/.exec(req.headers.authorization || "");
   if (!m) return false;
   const [u, ...resto] = Buffer.from(m[1], "base64").toString().split(":");
-  return iguales(u, p.usuario || "") && iguales(resto.join(":"), p.clave);
+  return credencialesValidas(u, resto.join(":"));
+}
+
+function esHttps(req) {
+  return req.socket.encrypted || String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim() === "https";
+}
+
+function paginaEntrar(res, codigo, error) {
+  const html = entrarHtml.replace("<!--ERROR-->", error ? `<p class="err">${error}</p>` : "");
+  res.writeHead(codigo, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+  res.end(html);
 }
 
 function json(res, codigo, datos) {
@@ -160,13 +207,38 @@ const servidor = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, modoPrueba: !!config.modoPrueba, sensores: sensores.size, ultimoUplink });
     }
 
+    const archivo = archivosPublicos.get(url.pathname);
+    if (archivo && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": archivo.tipo, "Cache-Control": url.pathname === "/sw.js" ? "no-cache" : "public, max-age=86400" });
+      return res.end(archivo.datos);
+    }
+
+    if (url.pathname === "/entrar") {
+      if (req.method !== "POST") return paginaEntrar(res, 200);
+      const datos = new URLSearchParams(await leerCuerpo(req));
+      if (!config.panel?.clave || !credencialesValidas(datos.get("usuario") || "", datos.get("clave") || "")) {
+        await new Promise((r) => setTimeout(r, 1000)); // frena a quien pruebe claves al azar
+        return paginaEntrar(res, 401, "Usuario o clave incorrectos.");
+      }
+      res.writeHead(303, {
+        Location: "./",
+        "Set-Cookie": `sesion=${valorSesion()}; Path=/; Max-Age=${DURACION_SESION}; HttpOnly; SameSite=Lax${esHttps(req) ? "; Secure" : ""}`,
+      });
+      return res.end();
+    }
+    if (url.pathname === "/salir") {
+      res.writeHead(303, { Location: "entrar", "Set-Cookie": "sesion=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax" });
+      return res.end();
+    }
+
     if (!autorizado(req)) {
-      res.writeHead(401, { "WWW-Authenticate": 'Basic realm="Monitor avicola", charset="UTF-8"' });
-      return res.end("Se necesita usuario y clave");
+      if (url.pathname.startsWith("/api/")) return json(res, 401, { error: "se necesita iniciar sesión" });
+      res.writeHead(303, { Location: "entrar", "Cache-Control": "no-store" });
+      return res.end();
     }
 
     if (url.pathname === "/" || url.pathname === "/index.html") {
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       return res.end(panelHtml);
     }
     if (url.pathname === "/api/estado") return json(res, 200, estado());
