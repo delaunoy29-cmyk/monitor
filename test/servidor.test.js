@@ -90,3 +90,56 @@ test("recibe datos del gateway por HTTP y los muestra en el panel", async (t) =>
   assert.match(s.salida(), /\[PRUEBA\] WhatsApp a Ana: 🚨 Galpón 1 – Inicio: 31,5 °C/);
   assert.ok(fs.readFileSync(path.join(s.datos, "lecturas.jsonl"), "utf8").includes("24E1240000000001"));
 });
+
+test("el panel se puede instalar como app en el iPhone y mantiene la sesión", async (t) => {
+  const puerto = PUERTO + 100;
+  const base = `http://127.0.0.1:${puerto}`;
+  const s = arrancar({
+    CONFIG_JSON: JSON.stringify({ limites: { calorAviso: 28, calorCritico: 31, frio: 14, humedadAlta: 80, humedadMinutos: 30, sinDatosMinutos: 20 } }),
+    MODO_PRUEBA: "true", PORT: String(puerto), TOKEN_GATEWAY: TOKEN, PANEL_CLAVE: "clave-panel", PANEL_USUARIO: "granja",
+    SENSORES: "24E1240000000001:1:Inicio",
+  });
+  t.after(() => s.hijo.kill("SIGTERM"));
+  await esperarListo(base);
+
+  // Lo que Safari necesita para "Añadir a pantalla de inicio" está disponible sin sesión.
+  const manifest = await fetch(`${base}/manifest.webmanifest`);
+  assert.strictEqual(manifest.status, 200);
+  assert.strictEqual((await manifest.json()).display, "standalone");
+  for (const ruta of ["/sw.js", "/icono-180.png", "/icono-512.png", "/apple-touch-icon.png"]) {
+    assert.strictEqual((await fetch(base + ruta)).status, 200, ruta);
+  }
+
+  // Sin sesión, el panel lleva a la página de entrada y la API responde 401.
+  const sinSesion = await fetch(`${base}/`, { redirect: "manual" });
+  assert.strictEqual(sinSesion.status, 303);
+  assert.strictEqual(sinSesion.headers.get("location"), "entrar");
+  assert.match(await (await fetch(`${base}/entrar`)).text(), /name="clave"/);
+  assert.strictEqual((await fetch(`${base}/api/estado`)).status, 401);
+
+  const entrar = (usuario, clave) => fetch(`${base}/entrar`, {
+    method: "POST", redirect: "manual",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ usuario, clave }),
+  });
+  const mal = await entrar("granja", "otra");
+  assert.strictEqual(mal.status, 401);
+  assert.match(await mal.text(), /incorrectos/);
+
+  const bien = await entrar("granja", "clave-panel");
+  assert.strictEqual(bien.status, 303);
+  const cookie = bien.headers.get("set-cookie");
+  assert.match(cookie, /^sesion=[0-9a-f]{64};.*Max-Age=\d+;.*HttpOnly/);
+  const conSesion = { Cookie: cookie.split(";")[0] };
+  assert.strictEqual((await fetch(`${base}/api/estado`, { headers: conSesion })).status, 200);
+  const panel = await (await fetch(`${base}/`, { headers: conSesion })).text();
+  assert.match(panel, /rel="manifest"/);
+  assert.match(panel, /apple-touch-icon/);
+
+  // Una cookie inventada no sirve, y usuario:clave en la cabecera sigue funcionando.
+  assert.strictEqual((await fetch(`${base}/api/estado`, { headers: { Cookie: "sesion=" + "0".repeat(64) } })).status, 401);
+  assert.strictEqual((await fetch(`${base}/api/estado`, { headers: auth })).status, 200);
+
+  const salir = await fetch(`${base}/salir`, { redirect: "manual", headers: conSesion });
+  assert.match(salir.headers.get("set-cookie"), /Max-Age=0/);
+});

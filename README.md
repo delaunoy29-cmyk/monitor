@@ -95,6 +95,8 @@ sudo systemctl reload caddy
 
 El panel queda en `https://granja.tudominio.cl` con el usuario y la clave de `config.json`.
 
+Para tenerlo como app en el iPhone (icono en la pantalla de inicio, sin App Store) sigue [docs/APP-IPHONE.md](docs/APP-IPHONE.md).
+
 </details>
 
 ## Paso 2 – Configurar
