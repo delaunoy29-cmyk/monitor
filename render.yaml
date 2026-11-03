@@ -1,0 +1,68 @@
+# Blueprint de Render: en render.com → New → Blueprint, elegir este repositorio.
+# Las variables con «sync: false» las pide Render al crear el servicio.
+services:
+  - type: web
+    name: monitor-avicola
+    runtime: docker
+    # El plan gratuito se duerme sin tráfico y pierde el disco: no sirve para alarmas.
+    plan: starter
+    region: virginia
+    healthCheckPath: /salud
+    autoDeploy: true
+    disk:
+      name: datos
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: MODO_PRUEBA
+        value: "true"
+      - key: TOKEN_GATEWAY
+        generateValue: true
+      - key: PANEL_USUARIO
+        value: granja
+      - key: PANEL_CLAVE
+        sync: false
+      - key: ZONA_HORARIA
+        value: America/Santiago
+      - key: GALPONES
+        value: Galpón 1,Galpón 2,Galpón 3,Galpón 4
+      - key: SENSORES
+        sync: false
+      - key: CALOR_AVISO
+        value: "28"
+      - key: CALOR_CRITICO
+        value: "31"
+      - key: FRIO
+        value: "14"
+      - key: HUMEDAD_ALTA
+        value: "80"
+      - key: HUMEDAD_MINUTOS
+        value: "30"
+      - key: SIN_DATOS_MINUTOS
+        value: "20"
+      - key: LLAMADAS_PROVEEDOR
+        value: callmebot
+      - key: CONTACTO_1_NOMBRE
+        sync: false
+      - key: CONTACTO_1_WHATSAPP
+        sync: false
+      - key: CONTACTO_1_APIKEY
+        sync: false
+      - key: CONTACTO_1_TELEGRAM
+        sync: false
+      - key: CONTACTO_2_NOMBRE
+        sync: false
+      - key: CONTACTO_2_WHATSAPP
+        sync: false
+      - key: CONTACTO_2_APIKEY
+        sync: false
+      - key: CONTACTO_2_TELEGRAM
+        sync: false
+      - key: CONTACTO_3_NOMBRE
+        sync: false
+      - key: CONTACTO_3_WHATSAPP
+        sync: false
+      - key: CONTACTO_3_APIKEY
+        sync: false
+      - key: CONTACTO_3_TELEGRAM
+        sync: false
