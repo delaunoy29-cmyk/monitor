@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Monitor Galpones</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icono-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Galpones">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#8a5a1c">
 <style>
 :root{
   --bg:#f4f3ef; --surface:#ffffff; --ink:#22231f; --muted:#6b6c63; --line:#dedcd3;
@@ -19,7 +26,7 @@
   --accent:#d9a45c; --s1:#f08a4b; --s2:#6fa8e8; --s3:#b4c95e; color-scheme:dark}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 var(--f)}
-.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 40px;display:flex;flex-direction:column;gap:20px}
+.wrap{max-width:1100px;margin:0 auto;padding:max(20px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(40px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:20px}
 header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:8px}
 h1{margin:0;font-size:1.6rem;letter-spacing:-.01em}
 h2{margin:0 0 10px;font-size:1rem}
@@ -62,6 +69,7 @@ ul.log time{font:12px var(--mono);color:var(--muted);white-space:nowrap;padding-
 <div class="wrap">
   <header>
     <div><h1>Monitor de galpones</h1><div class="muted" id="act">Cargando…</div></div>
+    <a class="muted" href="salir">Cerrar sesión</a>
   </header>
   <div class="banner ok" id="banner">Cargando estado…</div>
   <section class="galpones" id="galpones"></section>
@@ -105,6 +113,7 @@ const NIVEL={ok:"Normal",aviso:"Aviso",critico:"Crítico"};
 async function cargar(){
   try{
     const r=await fetch("api/estado",{cache:"no-store"});
+    if(r.status===401){location.href="entrar";return}
     est=await r.json(); pintar();
     $("act").textContent="Actualizado "+new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit",hour12:false})+" · se actualiza cada 30 s";
   }catch{ $("act").textContent="Sin conexión con el servidor, reintentando…" }
@@ -191,6 +200,9 @@ $("pruebas").onclick=async e=>{
 };
 addEventListener("resize",()=>{clearTimeout(window._r);window._r=setTimeout(grafico,200)});
 cargar().then(grafico);
+// Al volver a la app desde otra (el iPhone la deja en pausa), actualiza enseguida.
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){cargar();grafico()}});
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 setInterval(()=>{cargar();grafico()},30000);
 </script>
 </body>
