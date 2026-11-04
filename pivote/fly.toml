@@ -1,0 +1,37 @@
+# Capturador del XBee del pivote en Fly.io (región Santiago).
+# Desde esta carpeta (pivote/): ver docs/PIVOTE-CAPTURA.md
+app = "pivote-captura"
+primary_region = "scl"
+
+[build]
+
+[env]
+  PUERTO_TCP = "9000"
+  # UDP en Fly necesita configuración extra; el XBee se usa en TCP (IP = 1).
+  PUERTO_UDP = "0"
+
+[mounts]
+  source = "capturas"
+  destination = "/data"
+
+# Página para ver lo capturado: https://pivote-captura.fly.dev
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+# Puerto TCP crudo para el XBee. Requiere una IPv4 dedicada: fly ips allocate-v4
+[[services]]
+  protocol = "tcp"
+  internal_port = 9000
+  auto_stop_machines = "off"
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 9000
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
