@@ -2,3 +2,4 @@ config.json
 datos/
 node_modules/
 .env
+pivote/capturas/

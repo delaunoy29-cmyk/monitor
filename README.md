@@ -189,5 +189,6 @@ Abre `http://localhost:3000` (usuario `granja`, clave `CAMBIA-ESTA-CLAVE`). Con 
 | `simular.js` | Simulador de sensores para pruebas |
 | `Dockerfile`, `render.yaml`, `fly.toml` | Despliegue en la nube |
 | `test/` | Pruebas automáticas (`npm test`) |
+| `pivote/` | Capturador de prueba para el XBee del pivote de riego (aparte del monitor, ver [docs/PIVOTE-CAPTURA.md](docs/PIVOTE-CAPTURA.md)) |
 
 Los rangos de alarma son orientativos para gallinas en postura. Ajústalos con tu veterinario o con el manual de tu línea genética.
