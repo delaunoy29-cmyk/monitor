@@ -67,7 +67,9 @@ SEGURIDAD QUE YA TRAE EL PROGRAMA
   - Al encender, todos los relés abiertos (detenido).
   - 5 minutos sin conexión con la plataforma: detiene y lo anota en el panel.
     No vuelve a arrancar sola: hay que pedir "En marcha" otra vez.
-  - Corte de luz o reinicio: queda detenido, salvo que "Auto-reinicio" esté activado.
+  - Al encenderse (tarjeta nueva, corte de luz o reinicio) queda detenida y deja
+    "Detenido" en la app, aunque hubiera órdenes viejas de "En marcha". Solo vuelve
+    a arrancar sola si estaba en marcha con "Auto-reinicio" activado.
   - Para invertir el sentido en marcha: detiene 5 s, cambia, y vuelve a arrancar.
   - Si el programa se cuelga, se reinicia solo (y queda detenido).
   - En la app, arrancar o cambiar de sentido piden confirmación.

@@ -15,7 +15,8 @@
   - Al encender, todos los relés quedan ABIERTOS (pivote detenido).
   - Si pasa SIN_SENAL_MS sin hablar con la plataforma, abre MARCHA y avisa.
     Después NO vuelve a arrancar sola: hay que pedir "En marcha" otra vez desde la app.
-  - Tras un corte de luz solo vuelve a arrancar si "Auto-reinicio" está activado.
+  - Al encenderse (tarjeta nueva o corte de luz) queda detenida y deja "Detenido" en la
+    plataforma; solo vuelve a arrancar sola si estaba en marcha con "Auto-reinicio".
   - Para cambiar de sentido en marcha, primero detiene PAUSA_SENTIDO_MS.
   - Las paradas de emergencia y protecciones del tablero siguen mandando: esta
     tarjeta nunca debe puentearlas.
@@ -232,10 +233,12 @@ void setup() {
   esp_task_wdt_add(NULL);
 
   pref.begin("pivote", false);
-  // ¿Se cortó la luz (o se reinició) con el pivote en marcha?
-  if (pref.getBool("marcha", false) && !pref.getBool("autorein", false))
-    detenerLocal("corte_luz", "se reinicio la tarjeta");
-  // Con auto-reinicio, vuelve a arrancar cuando la plataforma confirme que sigue "En marcha".
+  // Al encender (corte de luz, reinicio o tarjeta nueva) NUNCA arranca por una orden vieja:
+  // avisa a la plataforma, que deja el pivote como "Detenido".
+  // Solo si estaba en marcha y "Auto-reinicio" está activado, vuelve a arrancar
+  // cuando la plataforma confirme que sigue "En marcha".
+  if (!(pref.getBool("marcha", false) && pref.getBool("autorein", false)))
+    detenerLocal("corte_luz", "se encendio la tarjeta");
 
   SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
   encenderModem();
