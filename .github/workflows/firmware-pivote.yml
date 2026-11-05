@@ -7,18 +7,19 @@ jobs:
   compilar:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         version: ["2.0.17", "3.0.7"]
     steps:
       - uses: actions/checkout@v4
-      - uses: arduino/compile-sketches@v1
-        with:
-          fqbn: esp32:esp32:esp32
-          platforms: |
-            - name: esp32:esp32
-              source-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-              version: ${{ matrix.version }}
-          libraries: |
-            - name: TinyGSM
-          sketch-paths: servimaxx-pivote/tarjeta_pivote_4g
-          enable-deltas-report: false
+      - name: Instalar arduino-cli, core ESP32 y TinyGSM
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=$HOME/bin sh
+          export PATH=$HOME/bin:$PATH
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32@${{ matrix.version }}
+          arduino-cli lib install TinyGSM
+      - name: Compilar
+        run: $HOME/bin/arduino-cli compile --fqbn esp32:esp32:esp32 --warnings default servimaxx-pivote/tarjeta_pivote_4g
