@@ -7,18 +7,19 @@ y Parar en posición, más el historial de órdenes.
 Se ve igual en el APK, en el iPhone y en el computador: no hay que
 recompilar el APK.
 
-POR AHORA LAS ÓRDENES NO LLEGAN AL PIVOTE. Se guardan como "Sin enviar".
-Cuando sepamos cómo se comunica la tarjeta iControl Remote, solo se
-cambia la función pivote_enviar_orden() al final de pivote_lib.php.
+Las órdenes llegan al pivote a través de una tarjeta propia LilyGO 4G con
+relés (carpeta tarjeta_pivote_4g, ver LEEME-TARJETA-PIVOTE.txt). La tarjeta
+se conecta a pivote_api.php con la clave API del pivote.
 
 Arrancar, Calendario, Auto-reinicio, Auto-arranque y cambiar de sentido
 piden confirmación antes de guardarse.
 
 CÓMO SUBIRLO (cPanel > Administrador de archivos > public_html/monitoreo)
 1. Respaldo: clic derecho en equipo.php > Copiar > equipo.php.respaldo-2026-11-04
-2. Cargar estos 3 archivos (reemplazar equipo.php):
+2. Cargar estos 4 archivos (reemplazar los que ya existan):
      pivote_lib.php
      pivote_control.php
+     pivote_api.php
      equipo.php
 3. Abrir un equipo tipo "Pivote de riego" en la plataforma.
    Las tablas pivote_control y pivote_ordenes se crean solas la primera vez.
@@ -28,4 +29,4 @@ no lo reemplaces: aplica a mano los 2 cambios de cambio-equipo.diff
 (una línea antes de "// Valores actuales" y la recarga al final).
 
 PARA VOLVER ATRÁS: restaurar equipo.php.respaldo-2026-11-04 y borrar
-pivote_lib.php y pivote_control.php.
+pivote_lib.php, pivote_control.php y pivote_api.php.

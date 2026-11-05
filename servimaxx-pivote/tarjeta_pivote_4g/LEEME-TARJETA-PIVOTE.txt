@@ -1,0 +1,94 @@
+=====================================================================
+ SERVIMAXX · TARJETA DE RELÉS DEL PIVOTE (PIV-xx)
+ Hace que los botones de "Control del pivote" muevan el pivote de verdad
+=====================================================================
+
+CÓMO FUNCIONA
+  App / servimaxx.cl  ->  pivote_api.php  <-  tarjeta LilyGO 4G (cada 10 s)  ->  5 relés  ->  tablero del pivote
+  - La tarjeta pregunta cada 10 segundos qué se pidió y lo aplica a los relés.
+  - En el panel la orden pasa de "Pendiente" a "Entregada" cuando la tarjeta la aplicó.
+  - "Parar en posición" usa el GPS de la última torre (el equipo pivote que ya
+    manda el ángulo a la plataforma cada 60 s). La plataforma detiene el pivote
+    cuando llega o pasa la posición (tolerancia 2°).
+  - "Calendario" y "Auto-arranque" todavía no los maneja la tarjeta: con
+    "Calendario" el pivote queda DETENIDO.
+
+---------------------------------------------------------------------
+LISTA DE COMPRAS (por pivote)
+---------------------------------------------------------------------
+  1  LilyGO T-SIM7600SA-H (o T-A7670SA) con antena 4G  -- la misma de los galpones
+  1  Batería 18650 para la LilyGO
+  1  Chip de datos (Entel/Movistar/Claro) sin PIN
+  1  Módulo de 8 relés 5 V con optoacoplador (se usan 5; quedan 3 de reserva)
+     Los contactos del módulo aguantan 10 A, pero NO se conectan directo a
+     motores: solo a las bobinas/entradas de mando del tablero.
+  5  Relés de interfaz de riel DIN con bobina 24 Vac o 24 Vdc según el mando
+     del tablero (ej. Finder 38.51 / Omron G2RV), uno por salida. Aíslan la
+     tarjeta del mando de 24/120/220 V del pivote.
+  1  Fuente 5 V 2 A de riel DIN (para LilyGO + módulo de relés)
+  1  Caja IP65 pequeña con riel DIN, prensaestopas, cable de mando 0,75 mm²
+  1  Interruptor "REMOTO / LOCAL" de 2 posiciones (ver cableado)
+
+---------------------------------------------------------------------
+CABLEADO  ⚠ lo hace un eléctrico con el tablero DESENERGIZADO
+---------------------------------------------------------------------
+  Pines LilyGO -> entradas del módulo de relés (IN1..IN5), GND común, VCC 5 V:
+    GPIO 32  -> IN1  R1 MARCHA
+    GPIO 33  -> IN2  R2 SENTIDO
+    GPIO 18  -> IN3  R3 MOJADO
+    GPIO 19  -> IN4  R4 VELOCIDAD REMOTA
+    GPIO 23  -> IN5  R5 PULSO DE VELOCIDAD
+  Cada salida del módulo mueve un relé de interfaz DIN; el contacto del relé
+  DIN es el que entra al tablero:
+
+  R1 MARCHA: contacto NA en PARALELO con el pulsador/selector de marcha del
+     tablero (como si alguien lo mantuviera presionado), y SIEMPRE DESPUÉS de
+     la cadena de seguridad (parada de emergencia, alineación, sobrepresión).
+     Abrir R1 = el pivote se detiene. Si el tablero arranca con pulso y para
+     con otro pulsador, avísame y ajusto el programa a "pulso de marcha" y
+     "pulso de parada".
+  R2 SENTIDO: contacto conmutado (NA/NC) en lugar del selector
+     avance/retroceso. NC = avance, NA = retroceso.
+  R3 MOJADO: contacto NA en paralelo con el selector "con agua" (o mando de
+     la bomba/válvula). NC abierto = en seco.
+  R4 VELOCIDAD REMOTA + R5 PULSO: R4 conmuta la salida del temporizador
+     porcentual del tablero hacia R5. Con R4 abierto manda el temporizador
+     del tablero (botones "Tablero" o "Sectores"). Con R4 cerrado manda la
+     app: R5 se cierra el % elegido de cada minuto.
+
+  Interruptor REMOTO/LOCAL: en LOCAL corta el común de los 5 relés DIN, así
+  nadie mueve el pivote desde la app mientras se trabaja en él.
+
+  NUNCA puentear paradas de emergencia, alineación ni protecciones térmicas.
+
+---------------------------------------------------------------------
+SEGURIDAD QUE YA TRAE EL PROGRAMA
+---------------------------------------------------------------------
+  - Al encender, todos los relés abiertos (detenido).
+  - 5 minutos sin conexión con la plataforma: detiene y lo anota en el panel.
+    No vuelve a arrancar sola: hay que pedir "En marcha" otra vez.
+  - Corte de luz o reinicio: queda detenido, salvo que "Auto-reinicio" esté activado.
+  - Para invertir el sentido en marcha: detiene 5 s, cambia, y vuelve a arrancar.
+  - Si el programa se cuelga, se reinicia solo (y queda detenido).
+  - En la app, arrancar o cambiar de sentido piden confirmación.
+
+---------------------------------------------------------------------
+PROGRAMAR LA TARJETA (igual que la de galpón)
+---------------------------------------------------------------------
+  1) Plataforma -> Administrar -> el equipo tipo "Pivote de riego" -> copiar su clave API.
+  2) Arduino IDE: placa "ESP32 Dev Module" (paquete esp32 de Espressif), librería TinyGSM.
+  3) Abrir tarjeta_pivote_4g.ino y cambiar:
+       API_KEY  = la clave del paso 1
+       APN      = el de tu compañía
+       PLACA_T_SIM7600 o PLACA_T_A7670 según la etiqueta del módulo 4G
+       RELE_ACTIVO = LOW (la mayoría de los módulos) o HIGH
+  4) Subir y abrir el Monitor Serie a 115200: cada 10 s debe decir "OK orden=...".
+  5) En la plataforma, el aviso amarillo del panel cambia a verde: "Tarjeta conectada".
+
+PRUEBA EN BANCO (antes de conectarla al tablero)
+  Con la tarjeta en la mesa, sin conectar al pivote, toca los botones de la
+  app y revisa que suene el relé correcto y que la orden quede "Entregada":
+    En marcha -> R1 · Retroceso -> R2 · Mojado -> R3
+    Velocidad "Desde la app" + Activar -> R4 cerrado y R5 cerrado el % del minuto.
+  Desconecta la antena 4G 5 minutos con "En marcha": R1 debe abrirse y el
+  panel debe anotar "Detenido por la tarjeta: estuvo sin conexión".
