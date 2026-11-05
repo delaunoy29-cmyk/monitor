@@ -1,0 +1,24 @@
+diff --git a/equipo.php b/equipo.php
+index c94a835..e83452a 100644
+--- a/equipo.php
++++ b/equipo.php
+@@ -81,6 +81,9 @@ echo '<div class="titulo"><h1>' . h($e['nombre']) . '</h1><p class="sub">'
+    . ' · <span class="estado ' . ($linea ? 'on' : 'off') . '">' . ($linea ? 'En línea' : 'Sin conexión') . '</span> '
+    . h(hace($e['ultimo_dato'])) . '</p></div>';
+ 
++// Pivote: panel de control (pivote_lib.php)
++if ($e['tipo'] === 'pivote') { require_once __DIR__ . '/pivote_lib.php'; pivote_panel($e); }
++
+ // Valores actuales
+ echo '<div class="valores grandes">';
+ foreach ($vars as $v) {
+@@ -159,6 +162,8 @@ if (MAPA && window.L) {
+   if (MAPA.centro) L.circleMarker(MAPA.centro, { radius: 5, color: '#fff', fillColor: '#334155', fillOpacity: 1 }).addTo(m).bindPopup('Centro');
+   MAPA.radio ? m.fitBounds(L.latLng(cen).toBounds(MAPA.radio * 2.4)) : (pts.length > 1 ? m.fitBounds(pts) : m.setView(cen, 16));
+ }
+-setTimeout(() => location.reload(), 120000);
++// Recarga cada 2 min, pero no mientras se confirma una orden del pivote o se escribe algo.
++(function recargar() { setTimeout(() => document.querySelector('dialog[open]') || document.activeElement?.matches('input')
++  ? recargar() : location.reload(), 120000); })();
+ </script>
+ <?php pie();

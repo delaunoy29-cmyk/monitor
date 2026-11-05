@@ -1,0 +1,31 @@
+CONTROL DEL PIVOTE · SERVIMAXX Monitoreo
+=========================================
+Agrega a la página de cada pivote (servimaxx.cl/monitoreo/equipo.php)
+una sección "Control del pivote": Estado (Detenido / Calendario / En marcha),
+Auto-reinicio, Auto-arranque, Sentido, Riego (seco/mojado), Velocidad
+y Parar en posición, más el historial de órdenes.
+Se ve igual en el APK, en el iPhone y en el computador: no hay que
+recompilar el APK.
+
+POR AHORA LAS ÓRDENES NO LLEGAN AL PIVOTE. Se guardan como "Sin enviar".
+Cuando sepamos cómo se comunica la tarjeta iControl Remote, solo se
+cambia la función pivote_enviar_orden() al final de pivote_lib.php.
+
+Arrancar, Calendario, Auto-reinicio, Auto-arranque y cambiar de sentido
+piden confirmación antes de guardarse.
+
+CÓMO SUBIRLO (cPanel > Administrador de archivos > public_html/monitoreo)
+1. Respaldo: clic derecho en equipo.php > Copiar > equipo.php.respaldo-2026-11-04
+2. Cargar estos 3 archivos (reemplazar equipo.php):
+     pivote_lib.php
+     pivote_control.php
+     equipo.php
+3. Abrir un equipo tipo "Pivote de riego" en la plataforma.
+   Las tablas pivote_control y pivote_ordenes se crean solas la primera vez.
+
+Si tu equipo.php del servidor tiene cambios hechos después del 28-10-2026,
+no lo reemplaces: aplica a mano los 2 cambios de cambio-equipo.diff
+(una línea antes de "// Valores actuales" y la recarga al final).
+
+PARA VOLVER ATRÁS: restaurar equipo.php.respaldo-2026-11-04 y borrar
+pivote_lib.php y pivote_control.php.
