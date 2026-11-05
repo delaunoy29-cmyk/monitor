@@ -1,0 +1,51 @@
+diff --git a/admin.php b/admin.php
+index 56095a5..2c7f6a3 100644
+--- a/admin.php
++++ b/admin.php
+@@ -74,6 +74,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+             $msg = 'Equipo y sus datos eliminados.';
+             break;
+ 
++        case 'borrar_cliente':
++            $cid = (int)$_POST['id'];
++            if (($_POST['confirmar'] ?? '') !== 'BORRAR') throw new Exception('Escribe BORRAR para confirmar.');
++            $cli = q('SELECT nombre FROM clientes WHERE id=?', [$cid])->fetch();
++            if (!$cli) throw new Exception('Ese cliente ya no existe.');
++            db()->beginTransaction();
++            foreach (q('SELECT id FROM equipos WHERE cliente_id=?', [$cid])->fetchAll(PDO::FETCH_COLUMN) as $eid) {
++                foreach (['lecturas', 'alarmas', 'variables'] as $t) q("DELETE FROM $t WHERE equipo_id=?", [$eid]);
++                // Tablas del control del pivote (pueden no existir todavía)
++                foreach (['pivote_control', 'pivote_ordenes', 'pivote_enlace'] as $t) {
++                    try { q("DELETE FROM $t WHERE equipo_id=?", [$eid]); } catch (PDOException $ex) {}
++                }
++            }
++            q('DELETE FROM equipos WHERE cliente_id=?', [$cid]);
++            q('DELETE FROM clientes WHERE id=?', [$cid]);
++            db()->commit();
++            $msg = 'Cliente "' . $cli['nombre'] . '" eliminado, con todos sus equipos y datos.';
++            break;
++
+         case 'guardar_variables':
+             $eid = (int)$_POST['id'];
+             foreach ((array)($_POST['v'] ?? []) as $vid => $v) {
+@@ -105,6 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+             break;
+         }
+     } catch (PDOException $ex) {
++        if (db()->inTransaction()) db()->rollBack();
+         $msg = 'Error: ' . (str_contains($ex->getMessage(), 'UNIQUE') || $ex->getCode() == 23000 ? 'ese usuario ya existe.' : 'no se pudo guardar.');
+     } catch (Exception $ex) {
+         $msg = 'Error: ' . $ex->getMessage();
+@@ -197,6 +217,12 @@ if (isset($_GET['cliente'])) {
+            . '<label>Teléfono<input name="telefono" value="' . h($c['telefono']) . '"></label>'
+            . '<label class="check"><input type="checkbox" name="activo"' . ($c['activo'] ? ' checked' : '') . '> Activo (si lo desactivas no puede entrar y sus equipos dejan de registrar)</label>'
+            . '</div><button>Guardar</button></form>';
++        $n = (int)q('SELECT COUNT(*) FROM equipos WHERE cliente_id=?', [$c['id']])->fetchColumn();
++        echo '<form class="card" method="post">' . csrf_campo() . '<h2>Eliminar cliente</h2>'
++           . '<p class="sub">Borra el cliente' . ($n ? ($n > 1 ? ", sus $n equipos" : ', su equipo') . ' y todo su historial' : '')
++           . '. No se puede deshacer. Si solo quieres que no entre, desmarca "Activo" arriba.</p>'
++           . '<input type="hidden" name="accion" value="borrar_cliente"><input type="hidden" name="id" value="' . (int)$c['id'] . '">'
++           . '<div class="fila"><input name="confirmar" placeholder="Escribe BORRAR" autocomplete="off"><button class="peligro">Eliminar cliente</button></div></form>';
+         pie(); exit;
+     }
+ }
